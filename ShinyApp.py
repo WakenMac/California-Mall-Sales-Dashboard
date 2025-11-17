@@ -14,6 +14,7 @@ def prepare_datasets():
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     DATA_DIR = os.path.join(BASE_DIR, "Datasets")
     sales_path = os.path.join(DATA_DIR, 'sales_data.csv')
+    mall_path = os.path.join(DATA_DIR, 'shopping_mall_data.csv')
 
     mall = pd.read_csv(sales_path)
 
@@ -24,15 +25,42 @@ def prepare_datasets():
     mall = mall.drop(["invoice date"], axis=1)
     mall = mall.sort_values("invoice_date")
 
-    return mall
+    mall_details = pd.read_csv(mall_path)
 
-mall_revenue_data = prepare_datasets()
+    return mall, mall_details
+
+mall_revenue_data, mall_details = prepare_datasets()
 html_content = """
     <html>
+        <h1><strong>California Mall Dataset</strong></h1><br>
+        <h3>Author and Details</h3>
         <p>
             <strong>Author: </strong>Waken Cean C. Maclang <br>
             <strong>Course: </strong>BS Computer Science 3rd Year <br> 
-            <strong>CSDS 312 - </strong> Machine Problem 3
+            <strong>CSDS 312 - </strong> Machine Problem 3 <br>
+            <br>
+            Originally, the mini project was aimed to have multiple panels for revenue, category, customer details, and customer clustering.<br>
+            However, due to time constraints, I've limited it first to supermarket sales on revenue and transactions based on product categories.<br>
+        </p>
+        <h3>All about the Dashboard</h3>
+        <p>
+            This dashboard follows the DATA framework.
+            <ul>
+                <li>Define Audience: For mall owners & data scientists.</li>
+                <li>Analyze Data: There is a huge decrease in revenue after January 2023.</li>
+                <li>Tell your story: The dashboard allows for the users to freely see different queries in the dataset by picking the year, month, malls, and the categories.</li>
+                <li>Act on findings: Stakeholders can then prioritize on which product categories to advertise given based on quantity sold and revenue.</li>
+            </ul>
+
+            I've designed it to allow data scientists and stakeholders to explore the dataset themselves. <br>
+            Not because I am lazy, but because it will better allow for exploration of patterns determined by experts in said field.
+        </p>
+        <h3>All about the dataset</h3>
+        <p>
+            The dataset was taken from: <a href=https://www.kaggle.com/datasets/captaindatasets/istanbul-mall>https://www.kaggle.com/datasets/captaindatasets/istanbul-mall</a><br>
+            It is a dataset comprising of 3 xlsx files, [1] supermarket sales, [2] customer data, [3] supermarket details<br>
+            It is designed to have a comprehensive understanding of the transactions made in a mall, customers who bought them, <br>
+            and characteristics of the mall (e.g., construction year, number of stores, etc.) that may help determine the reason for those sales
         </p>
     </html>
 """
@@ -40,9 +68,35 @@ html_content = """
 app_ui = ui.page_navbar(
     # Nav Bar 1: Prices
     ui.nav_panel(
+        'Mall Details',
+        ui.layout_column_wrap(
+            ui.card(
+                ui.card_header('Select a mall to view its details'),
+                ui.input_select(
+                    id='details_select_mall',
+                    label='Select mall',
+                    choices=[
+                        'Beverly Center', 'Del Amo Fashion Center', 'Fashion Valley', 'Glendale Galleria', 'Irvine Spectrum',
+                        'South Coast Plaza', 'Stanford Shopping Center', 'The Grove', 'Westfield Century City', 'Westfield Valley Fair'
+                    ] ,
+                    selected=['Beverly Center'],
+                    multiple=False
+                )
+            ),
+            ui.card(
+                ui.card_header('Mall Details:'),
+                ui.output_ui('get_mall_details')
+            )
+        ),
+        ui.layout_columns(
+            
+        )
+    ),
+
+    ui.nav_panel(
         "Revenue",
         ui.card(
-            ui.HTML('<p><strong>Play around with the options below to find patterns in the data</strong></p>'), 
+            ui.HTML('<p><strong>This section focuses on the revenue of malls across time</strong></p>'), 
             ui.layout_columns(
                 ui.card(
                     ui.card_header("Year Picker"),
@@ -90,7 +144,7 @@ app_ui = ui.page_navbar(
     ui.nav_panel(
         "Transactions",
         ui.card(
-            ui.HTML('<p><strong>Play around with the options below to find patterns in the data</strong></p>'), 
+            ui.HTML('<p><strong>View the different categories among malls here</strong></p>'), 
             ui.layout_columns(
                 ui.card(
                     ui.card_header("Year Picker"),
@@ -179,9 +233,7 @@ app_ui = ui.page_navbar(
         )
     ),
 
-    ui.nav_panel('Dashboard Description',
-        ui.HTML(html_content)
-    ),
+    ui.nav_panel('Dashboard Description', ui.HTML(html_content)),
 
     title='California Mall Dashboard'
 )
@@ -210,6 +262,25 @@ def server(input, output, session):
         if mall == 'All':
             return df
         return df[df['shopping_mall'].isin([mall])]
+
+    @reactive.Calc
+    def filtered_mall_details():
+        selected_mall = input.details_select_mall()
+        df = mall_details
+        return df[df['shopping_mall'] == selected_mall]
+
+    @output
+    @render.ui
+    def get_mall_details():
+        df = filtered_mall_details()
+        df.columns = ['Shopping Mall', 'Construction Year', 'Area (sqm)', 'Location', 'Store Count']
+        items = "".join(
+            f"<strong>{col}:</strong> {df[col].iloc[0]}"
+            f"<br>"
+            for col in df.columns
+        )
+
+        return ui.HTML(f"<ul style='padding-left:0; list-style:none;'>{items}</ul>")
 
     @output
     @render.text
