@@ -4,7 +4,7 @@ matplotlib.use("Agg")
 from shiny import App, ui, render, reactive
 # from shinywidgets import output_plotly, render_plotly
 from plotnine import ggplot, aes, geom_bar, geom_line, geom_point, geom_text
-from plotnine import theme_minimal, theme, labs, scale_x_continuous, scale_y_continuous, element_text
+from plotnine import theme_minimal, theme, labs, scale_x_continuous, scale_y_continuous, element_text, coord_flip
 import matplotlib.pyplot as plt 
 import pandas as pd
 import numpy as np
@@ -32,16 +32,22 @@ def prepare_datasets():
 mall_revenue_data, mall_details = prepare_datasets()
 html_content = """
     <html>
-        <h1><strong>California Mall Dataset</strong></h1><br>
+        <h1><strong>California Mall Dashboard</strong></h1><br>
         <h3>Author and Details</h3>
         <p>
             <strong>Author: </strong>Waken Cean C. Maclang <br>
             <strong>Course: </strong>BS Computer Science 3rd Year <br> 
             <strong>CSDS 312 - </strong> Machine Problem 3 <br>
             <br>
+
+            Hello! Welcome to the California Mall Dashboard<br>
+            Here, you can find insights on the product sales among 10 malls in California from 2021 to 2023<br>
+            Feel free to check the contents of the dashboard :><br><br>
+
             Originally, the mini project was aimed to have multiple panels for revenue, category, customer details, and customer clustering.<br>
             However, due to time constraints, I've limited it first to supermarket sales on revenue and transactions based on product categories.<br>
         </p>
+        <br>
         <h3>All about the Dashboard</h3>
         <p>
             This dashboard follows the DATA framework.
@@ -55,6 +61,7 @@ html_content = """
             I've designed it to allow data scientists and stakeholders to explore the dataset themselves. <br>
             Not because I am lazy, but because it will better allow for exploration of patterns determined by experts in said field.
         </p>
+        <br>
         <h3>All about the dataset</h3>
         <p>
             The dataset was taken from: <a href=https://www.kaggle.com/datasets/captaindatasets/istanbul-mall>https://www.kaggle.com/datasets/captaindatasets/istanbul-mall</a><br>
@@ -62,11 +69,22 @@ html_content = """
             It is designed to have a comprehensive understanding of the transactions made in a mall, customers who bought them, <br>
             and characteristics of the mall (e.g., construction year, number of stores, etc.) that may help determine the reason for those sales
         </p>
+        <br>
+        <h3>References</h3>
+        <p>
+            Decrease in mall revenue:
+            <ul>
+                <li><a href=https://coresight.com/research/the-state-of-the-american-mall-competitive-attractive-and-here-to-stay/>The State of the American Mall 2023</a></li>
+                <li><a href=https://www.forbes.com/sites/zengernews/2024/07/01/the-future-of-the-american-mall-is-being-shaped-in-los-angeles/>The Future Of The American Mall Is Being Shaped In Los Angeles</a></li>
+            </ul>
+        </p>
     </html>
 """
 
 app_ui = ui.page_navbar(
-    # Nav Bar 1: Prices
+    ui.nav_panel('Dashboard Description', ui.HTML(html_content)),
+
+    # Nav Bar 1: Mall Details
     ui.nav_panel(
         'Mall Details',
         ui.layout_column_wrap(
@@ -76,7 +94,7 @@ app_ui = ui.page_navbar(
                     id='details_select_mall',
                     label='Select mall',
                     choices=[
-                        'Beverly Center', 'Del Amo Fashion Center', 'Fashion Valley', 'Glendale Galleria', 'Irvine Spectrum',
+                        'Beverly Center', 'Del Amo Fashion Center', 'Fashion Valley', 'Glendale Galleria', 'Irvine Spectrum Center',
                         'South Coast Plaza', 'Stanford Shopping Center', 'The Grove', 'Westfield Century City', 'Westfield Valley Fair'
                     ] ,
                     selected=['Beverly Center'],
@@ -88,15 +106,24 @@ app_ui = ui.page_navbar(
                 ui.output_ui('get_mall_details')
             )
         ),
-        ui.layout_columns(
-            
-        )
+        ui.card(ui.output_plot('mall_store_count')),
+        ui.card(ui.output_plot('mall_area')),
     ),
 
+    # Nav Panel 2: Revenue
     ui.nav_panel(
         "Revenue",
+        ui.HTML("""
+            <h4>Revenue Across Malls</h4>
+            <p>
+                Play around with the interactive elements to see the change in revenue across malls in different years and months. <br>
+                <br>
+
+                After exploring the data, we noticed a drastic decrease in sales after early 2023.<br>
+                Sources noted it was due to the rise of E-commerce and operational challenges of California\'s brick-and-mortar stores
+            </p>
+        """),
         ui.card(
-            ui.HTML('<p><strong>This section focuses on the revenue of malls across time</strong></p>'), 
             ui.layout_columns(
                 ui.card(
                     ui.card_header("Year Picker"),
@@ -142,9 +169,19 @@ app_ui = ui.page_navbar(
 
     # Nav Bar 2: Product Categories
     ui.nav_panel(
-        "Transactions",
+        "Product Categories",
+        ui.HTML("""
+            <h4>Highest earning categories</h4>
+            <p>
+                Play around with the interactive elements to see the change in sales across malls in different years and months. <br>
+                <br>
+
+                After exploring the data, clothing remains as the most frequent product category bought.<br>
+                However, <strong>Clothing, Shoes, and Technology</strong> are the highest earning product categories. <br>
+            </p>
+        """),
         ui.card(
-            ui.HTML('<p><strong>View the different categories among malls here</strong></p>'), 
+            ui.HTML('<p><strong>View the different product categories among malls here</strong></p>'), 
             ui.layout_columns(
                 ui.card(
                     ui.card_header("Year Picker"),
@@ -192,13 +229,15 @@ app_ui = ui.page_navbar(
                 ui.input_select(
                     id='select_month',
                     label='Select Month',
-                    choices=["January", "February", "March", "April", "May", "June",
+                    choices=["All", "January", "February", "March", "April", "May", "June",
                                 "July", "August", "September", "October", "November", "December"],
                     selected='January'
                 )
             ),
+            ui.card(ui.output_plot('one_month_categorical_revenue')),
             ui.layout_columns(
                 ui.card(ui.output_plot('one_month_categorical_sales')),
+                ui.card(ui.output_plot('one_month_categorical_quantity')),
             )
         ),
         ui.card(ui.output_plot('monthly_categorical_sales')),
@@ -232,8 +271,6 @@ app_ui = ui.page_navbar(
             )
         )
     ),
-
-    ui.nav_panel('Dashboard Description', ui.HTML(html_content)),
 
     title='California Mall Dashboard'
 )
@@ -278,9 +315,66 @@ def server(input, output, session):
             f"<strong>{col}:</strong> {df[col].iloc[0]}"
             f"<br>"
             for col in df.columns
-        )
+        )[0:-4]
 
         return ui.HTML(f"<ul style='padding-left:0; list-style:none;'>{items}</ul>")
+
+    @output
+    @render.plot
+    def mall_store_count():
+        df = mall_details.copy(deep=True)
+        df = df[['shopping_mall', 'store_count']]
+
+        plot = (
+            ggplot(data=df)
+            + aes(x='shopping_mall', y='store_count')
+            + geom_bar(stat='identity', color='black', fill='blue')
+            + geom_text(
+                aes(label='store_count'),
+                va='top',
+                position='identity',
+                nudge_y = 0.11 * df['store_count'].max() 
+            )
+            + labs(
+                title = f'Number of stores per mall',
+                x='Mall',
+                y='# of Stores'
+            )
+            + theme_minimal()
+            + theme(axis_text_x=element_text(rotation=45, ha='right'))
+        )
+
+        return plot.draw()
+
+    @output
+    @render.plot
+    def mall_area():
+        df = mall_details.copy(deep=True)
+        df['area (sqm)'] = df['area (sqm)'].apply(lambda x: int("".join(x.split(','))))
+        df['store_size_per_sqm'] = df['area (sqm)'] / df['store_count']
+        df['label'] = df['store_size_per_sqm'].apply(lambda x: f'{x:,.2f} sqm')
+        df = df[['shopping_mall', 'store_size_per_sqm', 'label']]
+
+        plot = (
+            ggplot(data=df)
+            + aes(x='shopping_mall', y='store_size_per_sqm')
+            + geom_bar(stat='identity', color='black', fill='blue')
+            + geom_text(
+                aes(label='label'),
+                va='center',
+                position='identity',
+                nudge_y = 0.07 * df['store_size_per_sqm'].max()
+            )
+            + coord_flip()
+            + labs(
+                title = 'Compactness of mall',
+                x='Mall',
+                y='Area per store (mall_area / store_count)'
+            )
+            + theme_minimal()
+        )
+
+        return plot.draw()
 
     @output
     @render.text
@@ -336,11 +430,6 @@ def server(input, output, session):
         df = filtered_year()
         df = df.groupby('shopping_mall')[['price']].sum().reset_index().sort_values('price')
         df['label'] = df['price'].apply(lambda x: f"$ {x:,.2f}")
-        # df['shopping_mall'] = pd.Categorical(
-        #     df['shopping_mall'], 
-        #     categories=df['shopping_mall'][::-1], 
-        #     ordered=True
-        # )
 
         plot = (
             ggplot(data=df)
@@ -406,9 +495,10 @@ def server(input, output, session):
         month = input.select_month()
         month = 1 if month == 'January' else 2 if month == 'February' else 3 if month == 'March' else 4 if month == 'April' else 5 \
             if month == 'May' else 6 if month == 'June' else 7 if month == 'July' else 8 if month == 'August' else 9 if month == 'September' \
-            else 10 if month  == 'October' else 11 if month  == 'November' else 12
+            else 10 if month  == 'October' else 11 if month  == 'November' else 12 if month == 'December' else 13
         df = category_filtered_mall()
-        df = df[df['Month'] == month]
+        if month != 13:
+            df = df[df['Month'] == month]
         return df
 
     @output
@@ -436,12 +526,83 @@ def server(input, output, session):
     @render.plot
     def one_month_categorical_sales():
         df = category_filtered_month_plot()
-        df = df.groupby(['Month', 'category'])['invoice_no'].count().reset_index()
+        df = df.groupby(['category'])['invoice_no'].count().reset_index()
 
-        fig, ax = plt.subplots()
-        ax.pie(df['invoice_no'], labels=df['category'], autopct='%1.1f%%')
-        ax.set_title('Number of transactions per month')
-        return fig
+        plot = (
+            ggplot(data=df)
+            + aes(x='category', y='invoice_no')
+            + geom_bar(stat='identity', color='black', fill='blue')
+            + geom_text(
+                aes(label='invoice_no'),
+                va='top',
+                position='identity',
+                nudge_y = 0.11 * df['invoice_no'].max() 
+            )
+            + labs(
+                title = f'Number of transactions per category ({input.select_month()} {input.category_select_year()})',
+                x='Category',
+                y='# of Transactions'
+            )
+            + theme_minimal()
+            + theme(axis_text_x=element_text(rotation=45, ha='right'))
+        )
+
+        return plot.draw()
+
+    @output
+    @render.plot
+    def one_month_categorical_quantity():
+        df = category_filtered_month_plot()
+        df = df.groupby(['category'])['quantity'].sum().reset_index()
+
+        plot = (
+            ggplot(data=df)
+            + aes(x='category', y='quantity')
+            + geom_bar(stat='identity', color='black', fill='blue')
+            + geom_text(
+                aes(label='quantity'),
+                va='top',
+                position='identity',
+                nudge_y = 0.11 * df['quantity'].max() 
+            )
+            + labs(
+                title = f'Quantity bought per category ({input.select_month()} {input.category_select_year()})',
+                x='Category',
+                y='# of Transactions'
+            )
+            + theme_minimal()
+            + theme(axis_text_x=element_text(rotation=45, ha='right'))
+        )
+
+        return plot.draw()
+
+    @output
+    @render.plot
+    def one_month_categorical_revenue():
+        df = category_filtered_month_plot()
+        df = df.groupby(['category'])['price'].sum().reset_index()
+        df['price_details'] = df['price'].apply(lambda x: f'$ {x:,.2f}k')
+
+        plot = (
+            ggplot(data=df)
+            + aes(x='category', y='price')
+            + geom_bar(stat='identity', color='black', fill='blue')
+            + geom_text(
+                aes(label='price_details'),
+                va='top',
+                position='identity',
+                nudge_y = 0.11 * df['price'].max() 
+            )
+            + labs(
+                title = f'Revenue earned per category ({input.select_month()} {input.category_select_year()})',
+                x='Category',
+                y='Revenue'
+            )
+            + theme_minimal()
+            + theme(axis_text_x=element_text(rotation=45, ha='right'))
+        )
+
+        return plot.draw()
 
     @output
     @render.plot
