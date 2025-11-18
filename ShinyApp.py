@@ -27,7 +27,7 @@ def prepare_datasets():
 
     mall_details = pd.read_csv(mall_path)
 
-    return mall, mall_details
+    return mall.copy(deep=True), mall_details.copy(deep=True)
 
 mall_revenue_data, mall_details = prepare_datasets()
 html_content = """
@@ -50,7 +50,7 @@ html_content = """
         <br>
         <h3>All about the Dashboard</h3>
         <p>
-            This dashboard follows the DATA framework.
+            This dashboard follows the DATA technique.
             <ul>
                 <li>Define Audience: For mall owners & data scientists.</li>
                 <li>Analyze Data: There is a huge decrease in revenue after January 2023.</li>
@@ -286,7 +286,8 @@ def server(input, output, session):
         Returnes a queried version of our dataset based on the selected year
         """
         year = int(input.select_year())
-        return mall_revenue_data[mall_revenue_data["Year"] == year]
+        df = mall_revenue_data.copy(deep=True)
+        return df[df["Year"] == year]
 
     @reactive.Calc
     def filtered_mall():
@@ -303,7 +304,7 @@ def server(input, output, session):
     @reactive.Calc
     def filtered_mall_details():
         selected_mall = input.details_select_mall()
-        df = mall_details
+        df = mall_details.copy(deep=True)
         return df[df['shopping_mall'] == selected_mall]
 
     @output
@@ -460,7 +461,8 @@ def server(input, output, session):
         Returnes a queried version of our dataset based on the selected year
         """
         year = int(input.category_select_year())
-        return mall_revenue_data[mall_revenue_data["Year"] == year]
+        df = mall_revenue_data.copy(deep=True)
+        return df[df["Year"] == year]
     
     @reactive.Calc
     def category_filtered_mall():
@@ -499,6 +501,19 @@ def server(input, output, session):
         df = category_filtered_mall()
         if month != 13:
             df = df[df['Month'] == month]
+        return df
+
+    @reactive.Calc
+    def category_filtered_all_plot():
+        df = mall_revenue_data.copy(deep=True)
+        year = input.category_select_year_plot()
+        mall = input.category_select_mall_plot()
+        category = input.category_select_category_plot()
+
+        print(year, mall, category)
+
+        df_conditions = np.logical_and(np.logical_and(df['Year'] == int(year), df['shopping_mall'].isin(mall)), df['category'] == category)
+        df = df[df_conditions]
         return df
 
     @output
@@ -607,7 +622,7 @@ def server(input, output, session):
     @output
     @render.plot
     def monthly_categorical_sales():
-        df = category_filtered_mall()
+        df = mall_revenue_data.copy(deep=True)
         df = df.groupby(['Month', 'category'])['invoice_no'].count().reset_index()
         title_1 = 'Transactions in the' if input.category_select_mall() != 'All' else 'Transactions in'
         title_2 = 'Mall' if input.category_select_mall() != 'All' else 'Malls'
@@ -636,7 +651,7 @@ def server(input, output, session):
         if not chosen_category:
             return (ggplot() + labs(title="Select a specific category.")).draw()
         
-        df = category_filtered_category_plot()
+        df = category_filtered_all_plot()
         df = df.groupby(['Month', 'shopping_mall'])['invoice_no'].count().reset_index()
         plot = (
             ggplot(data=df)
